@@ -49,7 +49,7 @@ class MailMessage(models.Model):
         print(f"🤔 Calling Gemini with: {user_message}")
         
         # Your API key - replace with your actual key
-        API_KEY = "AIzaSyD6co9-d8zcWCCYvXc27PuNm0sTVMm-GLo"
+        API_KEY = ""
         
         try:
             # Initialize Gemini client
