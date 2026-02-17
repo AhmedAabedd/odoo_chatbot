@@ -1,0 +1,130 @@
+THE COMPLETE WORKFLOW:
+
+    - When a Website Visitor Starts a Chat:
+
+
+        Website Visitor ──► im_livechat.chat.session (created)
+                                │
+                                ▼
+                    ┌───► discuss.channel (created for this session)
+                    │           │
+                    │           ▼
+                    │    channel_member_ids created:
+                    │    • Visitor as member
+                    │    • Operator as member
+                    │
+                    ▼
+            Messages flow through mail.message
+            with model='im_livechat.chat.session'
+            and res_id = session_id
+
+
+    - When a Message is Posted (Your Auto-Reply Flow):
+
+
+            1. User types "Hello" in chat
+                    │
+                    ▼
+            2. mail.message.create() is called
+            • vals['model'] = 'discuss.channel' or 'im_livechat.chat.session'
+            • vals['res_id'] = channel/session ID
+            • vals['author_id'] = user ID
+                    │
+                    ▼
+            3. YOUR CODE INTERCEPTS (print statements)
+                    │
+                    ▼
+            4. Your auto-reply triggers
+            channel.message_post() is called
+                    │
+                    ▼
+            5. This calls mail.message.create() AGAIN
+            • BUT NOW with different vals:
+            • author_id = 2 (Odoobot)
+            • body = "Test reply"
+                    │
+                    ▼
+            6. YOUR CODE INTERCEPTS AGAIN (second message)
+            • flag_variable = 1 now, so NO new reply
+                    │
+                    ▼
+            7. SUPER().create() finally saves both messages
+                    │
+                    ▼
+            8. Odoo's internal mechanisms kick in:
+            • For each channel member, update discuss_channel_member
+            • Set fetched_message_id = new message ID
+            • Update last_seen_dt
+            • Send real-time notifications via bus
+            • THIS IS WHERE YOUR ERROR OCCURS
+
+
+KEY RELATIONSHIPS DIAGRAM
+
+        ┌─────────────────┐       ┌──────────────────┐
+        │  res.partner    │       │   res.users      │
+        │  (People)       │       │   (System Users) │
+        └────────┬────────┘       └────────┬─────────┘
+                │                         │
+                │                         │
+                ▼                         ▼
+        ┌──────────────────────────────────────┐
+        │     discuss.channel.member           │
+        │  (Who is in which channel)           │
+        └────────────────┬─────────────────────┘
+                        │
+                        │ many-to-one
+                        ▼
+        ┌──────────────────────────────────────┐
+        │        discuss.channel               │◄───┐
+        │  (Chat rooms, DMs, livechat)         │    │
+        └────────────────┬─────────────────────┘    │
+                        │                           │
+                        │ one-to-many               │
+                        ▼                           │
+        ┌──────────────────────────────────────┐    │
+        │         mail.message                 │    │
+        │  (Every message ever sent)           │    │
+        └──────────────────────────────────────┘    │
+                        ▲                           │
+                        │                           │
+                        └───────────────────────────┘
+                        (model='discuss.channel', 
+                        res_id=channel.id)
+
+        ┌──────────────────────────────────────┐
+        │     im_livechat.channel              │
+        │  (Website chat config)               │
+        └────────────────┬─────────────────────┘
+                        │
+                        ▼
+        ┌──────────────────────────────────────┐
+        │   im_livechat.chat.session           │
+        │  (Individual website chats)          │
+        └────────────────┬─────────────────────┘
+                        │
+                        │ messages reference this
+                        ▼
+                    ┌───┴───┐
+                    ▼       ▼
+            mail.message (model='im_livechat.chat.session')
+
+
+
+DIFFERENCE BETWEEN 'im_livechat.channel' AND 'discuss.channel'
+
+
+
+                im_livechat.channel (config) ── has many ──► im_livechat.chat.session (individual chats)
+                                                                    │
+                                                                    ▼
+                                                        discuss.channel (created for this session)
+
+
+    Think of it like a restaurant:
+
+    im_livechat.channel = The restaurant's policies, menu, staff schedule
+
+    discuss.channel = An actual table where customers sit and talk
+
+    Each new customer gets their own table (discuss.channel) based on the restaurant's rules (im_livechat.channel)
