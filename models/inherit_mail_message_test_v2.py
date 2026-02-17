@@ -75,7 +75,7 @@ class MailMessage(models.Model):
         
         print(f"🤔 Calling Gemini with: {user_message}")
         
-        API_KEY = "AIzaSyBobw7I5PXGmM3Y7lxTlaoFRwYEIP_6Ozs"
+        API_KEY = ""
         
         try:
             client = genai.Client(api_key=API_KEY)
